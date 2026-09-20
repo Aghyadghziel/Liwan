@@ -26,6 +26,6 @@ export function Rule({ className }: { className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { amount: 0.5 });
   return (
-    <div ref={ref} className={cn('h-px w-full origin-left bg-line transition-transform duration-[1800ms] ease-[var(--ease-out)]', !inView && 'scale-x-0', className)} />
+    <div ref={ref} className={cn('h-px w-full bg-line ltr:origin-left rtl:origin-right transition-transform duration-[1800ms] ease-[var(--ease-out)]', !inView && 'scale-x-0', className)} />
   );
 }

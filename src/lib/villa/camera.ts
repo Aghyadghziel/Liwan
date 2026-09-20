@@ -54,12 +54,22 @@ const emit = () => {
   for (const listener of listeners) listener();
 };
 
+/** When a shot is pinned (the render bench), scrolling no longer moves the camera. */
+let pinned = false;
+export function pinShot(name: ShotName) {
+  pinned = true;
+  mode = { kind: 'shot', name, orbit: false };
+  emit();
+}
+
 export function setPathProgress(progress: number) {
+  if (pinned) return;
   mode = { kind: 'path', progress };
   emit();
 }
 
 export function flyTo(name: ShotName, { orbit = true } = {}) {
+  if (pinned) return;
   mode = { kind: 'shot', name, orbit };
   emit();
 }
@@ -73,6 +83,19 @@ export function subscribeCamera(listener: Listener) {
   return () => {
     listeners.delete(listener);
   };
+}
+
+/**
+ * Where the subject sits in the frame, from -1 (pushed left) to 1 (pushed right). The opening
+ * titles sit on the reading side of the screen, so the house moves to the other one: right in
+ * English, left in Arabic. This is a lens shift, as on a view camera — verticals stay true.
+ */
+let filmShift = 0;
+export function setFilmShift(value: number) {
+  filmShift = value;
+}
+export function getFilmShift() {
+  return filmShift;
 }
 
 const SERVER_MODE: Mode = { kind: 'path', progress: 0 };

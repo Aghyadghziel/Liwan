@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 
 /**
  * The residence is drawn from a plan, not modelled by hand. Walls are extruded profiles with
@@ -73,10 +74,69 @@ export function wallGeometry(length: number, height: number, thickness: number, 
   return key ? remember(key, build) : build();
 }
 
+type Axis = 'x' | 'y' | 'z';
+
+/**
+ * Re-maps a geometry's UVs to metres, face by face, so a texture with a physical size lands
+ * at that size on every object. `grain` names the axis the texture's U (the direction wood
+ * grain and stone bedding run in) should follow; by default, the object's longest side.
+ */
+function metreUVs(geometry: THREE.BufferGeometry, size: [number, number, number], grain?: Axis) {
+  const axes: Axis[] = ['x', 'y', 'z'];
+  const along = grain ?? axes[size.indexOf(Math.max(...size))];
+  const position = geometry.attributes.position as THREE.BufferAttribute;
+  const normal = geometry.attributes.normal as THREE.BufferAttribute;
+  const uv = geometry.attributes.uv as THREE.BufferAttribute;
+  const p = new THREE.Vector3();
+  const n = new THREE.Vector3();
+  for (let i = 0; i < position.count; i++) {
+    p.fromBufferAttribute(position, i);
+    n.fromBufferAttribute(normal, i);
+    const ax = Math.abs(n.x);
+    const ay = Math.abs(n.y);
+    const az = Math.abs(n.z);
+    const facing: Axis = ax >= ay && ax >= az ? 'x' : ay >= az ? 'y' : 'z';
+    const [a, b] = axes.filter((axis) => axis !== facing);
+    const u = a === along ? a : b === along ? b : a;
+    const v = u === a ? b : a;
+    uv.setXY(i, p[u], p[v]);
+  }
+  uv.needsUpdate = true;
+}
+
+/**
+ * A box in metres with a softened arris. Nothing built has a perfectly sharp edge, and it is
+ * the thin highlight along that edge that tells the eye an object is solid rather than drawn.
+ */
+export function mbox(width: number, height: number, depth: number, { radius = 0.008, grain }: { radius?: number; grain?: Axis } = {}) {
+  const r = Math.min(radius, Math.min(width, height, depth) / 2 - 0.0005);
+  return remember(`mbox:${width}:${height}:${depth}:${r.toFixed(4)}:${grain ?? ''}`, () => {
+    const geometry = r > 0.0015 ? new RoundedBoxGeometry(width, height, depth, 2, r) : new THREE.BoxGeometry(width, height, depth);
+    metreUVs(geometry, [width, height, depth], grain);
+    return geometry;
+  });
+}
+
 /** A rectangular slab: floors, roofs, copings, treads. */
-export function slab(width: number, thickness: number, depth: number, key?: string) {
-  const build = () => new THREE.BoxGeometry(width, thickness, depth);
-  return key ? remember(key, build) : build();
+export function slab(width: number, thickness: number, depth: number, _key?: string, options?: { radius?: number; grain?: Axis }) {
+  return mbox(width, thickness, depth, { radius: 0.006, ...options });
+}
+
+/** A horizontal surface with UVs in metres. */
+export function mplane(width: number, depth: number) {
+  return remember(`mplane:${width}:${depth}`, () => {
+    const geometry = new THREE.PlaneGeometry(width, depth);
+    geometry.rotateX(-Math.PI / 2);
+    const position = geometry.attributes.position as THREE.BufferAttribute;
+    const uv = geometry.attributes.uv as THREE.BufferAttribute;
+    for (let i = 0; i < position.count; i++) uv.setXY(i, position.getX(i), position.getZ(i));
+    return geometry;
+  });
+}
+
+/** A cylinder in metres: lamp stems, pots, columns, trunks. */
+export function mcyl(radiusTop: number, radiusBottom: number, height: number, segments = 28) {
+  return remember(`mcyl:${radiusTop}:${radiusBottom}:${height}:${segments}`, () => new THREE.CylinderGeometry(radiusTop, radiusBottom, height, segments));
 }
 
 /**
@@ -93,9 +153,9 @@ export function poolParts() {
     width,
     length,
     depth,
-    floor: remember('pool-floor', () => new THREE.BoxGeometry(width, 0.2, length)),
-    sideLong: remember('pool-side-long', () => new THREE.BoxGeometry(wall, depth, length)),
-    sideShort: remember('pool-side-short', () => new THREE.BoxGeometry(width + wall * 2, depth, wall)),
+    floor: mbox(width, 0.2, length, { radius: 0 }),
+    sideLong: mbox(wall, depth, length, { radius: 0 }),
+    sideShort: mbox(width + wall * 2, depth, wall, { radius: 0 }),
     water: remember('pool-water', () => new THREE.PlaneGeometry(width - 0.04, length - 0.04, 24, 24)),
     wall,
   };

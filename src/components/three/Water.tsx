@@ -41,7 +41,7 @@ vec3 rippleNormal(vec2 p, float t) {
     vec2 dir = normalize(vec2(cos(fi * 2.1 + 0.6), sin(fi * 1.7 + 1.2)));
     float freq = 2.4 + fi * 2.7;
     float speed = 0.5 + fi * 0.22;
-    float amp = 0.028 / (1.0 + fi * 0.85);
+    float amp = 0.016 / (1.0 + fi * 0.85);
     float phase = dot(p, dir) * freq + t * speed;
     h += sin(phase) * amp;
     slope += dir * cos(phase) * freq * amp;
@@ -53,25 +53,36 @@ void main() {
   vec3 view = normalize(cameraPosition - vWorld);
   vec3 normal = rippleNormal(vWorld.xz, uTime);
 
+  // The bed, seen through moving water: the ripple bends the line of sight, so the mosaic
+  // joints swim. This wobble is most of what makes a pool read as water and not as paint.
+  vec2 bed = vWorld.xz + normal.xz * 1.6 + view.xz / max(view.y, 0.25) * 0.5;
+  vec2 cell = abs(fract(bed / 0.3) - 0.5);
+  float joint = smoothstep(0.455, 0.49, max(cell.x, cell.y));
+
   // Deeper toward the middle of the basin, paler over the steps at the near end.
   float shallow = smoothstep(0.42, 0.04, vUv.y);
   vec3 body = mix(uDeep, uShallow, shallow * 0.85);
+  body = mix(body, body * 1.22 + 0.03, joint * 0.5);
+
+  // Caustics: where two wave trains focus the sun onto the bed.
+  float c1 = sin(bed.x * 3.4 + uTime * 0.7) * sin(bed.y * 2.9 - uTime * 0.5);
+  float c2 = sin((bed.x + bed.y) * 2.3 - uTime * 0.6) * sin((bed.x - bed.y) * 3.1 + uTime * 0.4);
+  float caustic = pow(clamp(1.0 - abs(c1 + c2) * 0.9, 0.0, 1.0), 5.0);
+  body += vec3(0.75, 0.95, 1.0) * caustic * 0.11;
 
   // Water is a mirror at grazing angles and a window straight down.
-  float fresnel = 0.05 + 0.95 * pow(1.0 - clamp(dot(view, normal), 0.0, 1.0), 4.2);
+  float fresnel = 0.04 + 0.96 * pow(1.0 - clamp(dot(view, normal), 0.0, 1.0), 4.6);
   vec3 reflected = mix(uHorizon, uSky, clamp(view.y * 1.4, 0.0, 1.0));
-  vec3 colour = mix(body, reflected, clamp(fresnel * 0.92, 0.0, 0.9));
+  vec3 colour = mix(body, reflected, clamp(fresnel, 0.0, 0.92));
 
   // The sun's own highlight, tight enough to read as a glint on moving water.
   vec3 halfway = normalize(view + normalize(uSun));
-  float glint = pow(max(dot(normal, halfway), 0.0), 260.0);
-  colour += vec3(1.0, 0.95, 0.86) * glint * 1.6;
+  float glint = pow(max(dot(normal, halfway), 0.0), 320.0);
+  colour += vec3(1.0, 0.95, 0.86) * glint * 1.4;
 
-  // A little sparkle where the ripples turn toward the light.
-  float sparkle = pow(max(normal.y - 0.985, 0.0) * 60.0, 2.0);
-  colour += vec3(0.9, 0.97, 1.0) * sparkle * 0.16;
-
-  gl_FragColor = vec4(colour * 1.08, 0.93);
+  gl_FragColor = vec4(colour, 1.0);
+  #include <tonemapping_fragment>
+  #include <colorspace_fragment>
 }`;
 
 export function Water() {
@@ -85,9 +96,9 @@ export function Water() {
       uTime: { value: 0 },
       uDeep: { value: new THREE.Color('#1d7f9b') },
       uShallow: { value: new THREE.Color('#66c6d6') },
-      uSky: { value: new THREE.Color('#9db9d8') },
-      uHorizon: { value: new THREE.Color('#dcd2c2') },
-      uSun: { value: new THREE.Vector3(-0.45, 0.32, -0.82).normalize() },
+      uSky: { value: new THREE.Color('#7fa6d6') },
+      uHorizon: { value: new THREE.Color('#d9dee2') },
+      uSun: { value: new THREE.Vector3(-44, 27, 30).normalize() },
     }),
     [],
   );
@@ -107,7 +118,7 @@ export function Water() {
 
   return (
     <mesh geometry={parts.water} position={[cx, -0.12, cz]} rotation={[-Math.PI / 2, 0, 0]}>
-      <shaderMaterial ref={material} vertexShader={vertex} fragmentShader={fragment} uniforms={uniforms} transparent depthWrite={false} toneMapped />
+      <shaderMaterial ref={material} vertexShader={vertex} fragmentShader={fragment} uniforms={uniforms} />
     </mesh>
   );
 }

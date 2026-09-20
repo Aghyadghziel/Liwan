@@ -1,3 +1,4 @@
+import type { Locale } from '@/lib/i18n';
 import { PLAN } from '@/lib/villa/geometry';
 
 /**
@@ -16,8 +17,19 @@ const x = (value: number) => (value - MIN_X) * SCALE;
 const y = (value: number) => (value - MIN_Z) * SCALE;
 const w = (from: number, to: number) => (to - from) * SCALE;
 
-export function Plan({ className }: { className?: string }) {
+const LABELS = [
+  { x: -9.6, z: 0.2, ar: 'البهو', en: 'FOYER' },
+  { x: -3.4, z: -4.6, ar: 'المعيشة', en: 'LIVING' },
+  { x: 7.4, z: -2.6, ar: 'المطبخ', en: 'KITCHEN' },
+  { x: 1.1, z: -0.9, ar: 'الطعام', en: 'DINING' },
+  { x: -7, z: 9.5, ar: 'الشرفة', en: 'TERRACE' },
+  { x: 3.5, z: 13.3, ar: 'المسبح', en: 'POOL' },
+  { x: -14.3, z: -6.6, ar: 'الرواق', en: 'PORTICO' },
+];
+
+export function Plan({ className, locale = 'en' }: { className?: string; locale?: Locale }) {
   const wall = PLAN.wall * SCALE;
+  const ar = locale === 'ar';
 
   return (
     <figure className={className}>
@@ -25,7 +37,7 @@ export function Plan({ className }: { className?: string }) {
         viewBox={`0 0 ${w(MIN_X, MAX_X)} ${w(MIN_Z, MAX_Z)}`}
         className="w-full bg-paper"
         role="img"
-        aria-label="Ground floor plan: foyer, living, kitchen, terrace and pool"
+        aria-label={ar ? 'مسقط الدور الأرضي: البهو والمعيشة والمطبخ والشرفة والمسبح' : 'Ground floor plan: foyer, living, kitchen, terrace and pool'}
       >
         <g fill="none" stroke="#0e0f10">
           {/* Terrace and pool, drawn thin: landscape is a lighter line than building. */}
@@ -82,14 +94,12 @@ export function Plan({ className }: { className?: string }) {
         </g>
 
         {/* Labels */}
-        <g fill="#0e0f10" fontSize={11} letterSpacing={2.4} fontFamily="var(--font-sans)">
-          <text x={x(-10.6)} y={y(0)}>FOYER</text>
-          <text x={x(-5.2)} y={y(-4.4)}>LIVING</text>
-          <text x={x(5.2)} y={y(-3.2)}>KITCHEN</text>
-          <text x={x(-1.4)} y={y(-1.6)}>DINING</text>
-          <text x={x(-8)} y={y(9.4)}>TERRACE</text>
-          <text x={x(2.6)} y={y(13.4)} fill="#f4f1ec">POOL</text>
-          <text x={x(PLAN.west - 4.2)} y={y(-6.6)}>PORTICO</text>
+        <g fill="#0e0f10" fontSize={ar ? 14 : 11} letterSpacing={ar ? 0 : 2.4} textAnchor="middle" fontFamily="var(--font-head)">
+          {LABELS.map((label) => (
+            <text key={label.en} x={x(label.x)} y={y(label.z)} direction={ar ? 'rtl' : 'ltr'}>
+              {ar ? label.ar : label.en}
+            </text>
+          ))}
         </g>
 
         {/* Dimension line across the front, and north. */}
@@ -98,18 +108,17 @@ export function Plan({ className }: { className?: string }) {
           <line x1={x(PLAN.west)} y1={y(MAX_Z - 1.8)} x2={x(PLAN.west)} y2={y(MAX_Z - 1)} />
           <line x1={x(PLAN.east)} y1={y(MAX_Z - 1.8)} x2={x(PLAN.east)} y2={y(MAX_Z - 1)} />
         </g>
-        <text x={x(0)} y={y(MAX_Z - 1.9)} fill="#0e0f10" fontSize={11} letterSpacing={2} textAnchor="middle" fontFamily="var(--font-sans)">
+        <text x={x(0)} y={y(MAX_Z - 1.9)} fill="#0e0f10" fontSize={11} letterSpacing={2} textAnchor="middle" fontFamily="var(--font-jost)">
           24.00
         </text>
         <g transform={`translate(${x(PLAN.east + 3.4)}, ${y(PLAN.north - 3.6)})`}>
           <line x1={0} y1={14} x2={0} y2={-14} stroke="#0e0f10" strokeWidth={0.8} />
           <path d="M 0 -18 L 4 -8 L 0 -11 L -4 -8 Z" fill="#0e0f10" />
-          <text x={0} y={26} fill="#0e0f10" fontSize={10} letterSpacing={2} textAnchor="middle" fontFamily="var(--font-sans)">
+          <text x={0} y={26} fill="#0e0f10" fontSize={10} letterSpacing={2} textAnchor="middle" fontFamily="var(--font-jost)">
             N
           </text>
         </g>
       </svg>
-      <figcaption className="label mt-4 text-stone/60">Drawn from the model, not redrawn for the page.</figcaption>
     </figure>
   );
 }
