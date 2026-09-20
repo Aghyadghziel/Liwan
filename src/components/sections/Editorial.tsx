@@ -109,7 +109,7 @@ function ProjectRow({ project, index }: { project: Project; index: number }) {
           <span aria-hidden="true" className="h-px w-8 bg-bronze/50" />
           <span className="text-stone">{project.status}</span>
         </p>
-        <h3 className="display-lg mt-5 text-[clamp(1.9rem,1rem+2.6vw,3.6rem)]">
+        <h3 className="display-lg mt-5 text-[clamp(1.8rem,1rem+1.9vw,3rem)] [text-wrap:balance]">
           <span className="bg-[linear-gradient(currentColor,currentColor)] bg-[length:0%_1px] bg-no-repeat pb-1 transition-[background-size] duration-[900ms] ease-[var(--ease-out)] group-hover:bg-[length:100%_1px] ltr:bg-[position:0_100%] rtl:bg-[position:100%_100%]">{project.name}</span>
         </h3>
         <p className="mt-3 text-stone">
