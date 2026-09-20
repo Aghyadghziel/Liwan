@@ -766,7 +766,7 @@ function Landscape({ fine }: { fine: boolean }) {
       {fine && <Palm seed={5} position={[-31, 0, 25]} height={7.8} />}
       {fine && <Palm seed={6} position={[22, 0, -14]} height={8.4} />}
 
-      <Olive seed={1} position={[-19, 0, 17.5]} scale={1.15} />
+      <Olive seed={1} position={[-28, 0, 13.5]} scale={1.15} />
       <Olive seed={2} position={[19.5, 0, 9]} rotation={1.3} />
       <Olive seed={3} position={[-10, 0, 27.5]} scale={1.25} rotation={2.2} />
       <Olive seed={4} position={[13, 0, 29]} rotation={0.6} />

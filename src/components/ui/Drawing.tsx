@@ -43,7 +43,7 @@ function ScaleBar({ x, y, metres, unit, locale }: { x: number; y: number; metres
         <line key={step} x1={width * step} y1={-4} x2={width * step} y2={4} stroke={INK} strokeWidth={0.8} />
       ))}
       <rect x={0} y={-2} width={width / 2} height={4} fill={INK} />
-      <text x={width / 2} y={20} fontSize={10.5} textAnchor="middle" fill={INK} fontFamily="var(--font-jost)" letterSpacing={1.5}>
+      <text x={width / 2} y={20} fontSize={locale === 'ar' ? 12 : 10.5} textAnchor="middle" fill={INK} fontFamily="var(--font-head)" letterSpacing={locale === 'ar' ? 0 : 1.5} direction={locale === 'ar' ? 'rtl' : 'ltr'}>
         {locale === 'ar' ? `${metres} م` : `${metres} m`}
       </text>
     </g>

@@ -135,11 +135,17 @@ export function Hero() {
           the reading side and clears as soon as the camera starts moving. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none fixed inset-0 -z-10 transition-opacity duration-700"
+        className="pointer-events-none fixed inset-0 -z-10 transition-opacity duration-700 max-md:hidden"
         style={{
           opacity: 1 - titleOut,
           background: `linear-gradient(${dir === 'rtl' ? '255deg' : '105deg'}, rgba(14,15,16,0.92) 0%, rgba(14,15,16,0.72) 36%, rgba(14,15,16,0.14) 66%, transparent 86%)`,
         }}
+      />
+      {/* On a phone the titles sit over the house, not beside it, so the shade is even. */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none fixed inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(14,15,16,0.82),rgba(14,15,16,0.66)_55%,rgba(14,15,16,0.25))] transition-opacity duration-700 md:hidden"
+        style={{ opacity: 1 - titleOut }}
       />
       {/* A lasting shade at the foot of the frame for the chapter notes. */}
       <div aria-hidden="true" className="pointer-events-none fixed inset-x-0 bottom-0 -z-10 h-[30svh] bg-[linear-gradient(to_top,rgba(14,15,16,0.6),transparent)]" style={{ opacity: titleOut }} />

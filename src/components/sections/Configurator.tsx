@@ -36,7 +36,7 @@ export function Configurator() {
 
   return (
     <section ref={section} id="residence" className="relative h-[150svh]" aria-label={configure.aria}>
-      <div className="sticky top-0 flex h-[100svh] flex-col justify-between pb-6 pt-[calc(var(--nav)+1.5rem)]">
+      <div className="sticky top-0 flex h-[100svh] flex-col justify-between pb-6 pt-[calc(var(--nav)+1.5rem)] max-md:pb-[4.75rem]">
         {/* A light scrim at the top and bottom, so controls and type stay readable whatever
             the camera is looking at. */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-[38svh] bg-[linear-gradient(to_bottom,rgba(14,15,16,0.82),transparent)]" />
