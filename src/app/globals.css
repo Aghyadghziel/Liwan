@@ -1,26 +1,142 @@
 @import "tailwindcss";
 
+/* ─── LIWAN design system ─────────────────────────────────────
+   A liwan is the shaded hall that opens onto a courtyard. The palette is taken from that
+   idea: deep shade, sunlit stone, and a single bronze line. Nothing else.            */
+@theme {
+  --color-ink: #0e0f10;
+  --color-ink-2: #151618;
+  --color-ink-3: #1d1f21;
+  --color-paper: #f4f1ec;
+  --color-stone: #c9bfb2;
+  --color-mute: #8a857d;
+  --color-faint: #5a5751;
+  --color-bronze: #a8763e;
+  --color-line: rgb(244 241 236 / 0.12);
+  --color-line-dark: rgb(14 15 16 / 0.14);
+
+  --font-display: var(--font-serif), Georgia, serif;
+  --font-sans: var(--font-jost), system-ui, sans-serif;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --gutter: clamp(1.25rem, 0.6rem + 3vw, 4rem);
+  --nav: 4.75rem;
+  --section: clamp(5rem, 3rem + 9vw, 11rem);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@utility container-x {
+  width: min(100% - 2 * var(--gutter), 92rem);
+  margin-inline: auto;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@utility section-y {
+  padding-block: var(--section);
+}
+
+/* Small uppercase label with architectural tracking — used for metadata only. */
+@utility label {
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+@utility display-xl {
+  font-family: var(--font-sans);
+  font-size: clamp(2.6rem, 1rem + 6.4vw, 8.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  font-weight: 300;
+  text-transform: uppercase;
+}
+
+@utility display-lg {
+  font-family: var(--font-sans);
+  font-size: clamp(2rem, 1rem + 4vw, 5rem);
+  line-height: 1;
+  letter-spacing: -0.025em;
+  font-weight: 300;
+  text-transform: uppercase;
+}
+
+@utility display-md {
+  font-family: var(--font-sans);
+  font-size: clamp(1.5rem, 1rem + 2vw, 2.75rem);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 300;
+}
+
+/* The editorial voice: a serif, used sparingly and large. */
+@utility editorial {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.08;
+}
+
+@utility rule {
+  height: 1px;
+  background: var(--color-line);
+}
+
+@layer base {
+  html {
+    background: var(--color-ink);
+    color-scheme: dark;
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: auto;
+  }
+  body {
+    background: var(--color-ink);
+    color: var(--color-paper);
+    font-family: var(--font-sans);
+    font-weight: 300;
+    line-height: 1.6;
+    overflow-x: clip;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--color-bronze);
+    color: var(--color-ink);
+  }
+  :focus-visible {
+    outline: 1px solid var(--color-bronze);
+    outline-offset: 3px;
+  }
+  canvas {
+    touch-action: pan-y;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
