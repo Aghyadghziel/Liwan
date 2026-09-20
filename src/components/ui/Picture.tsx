@@ -34,9 +34,12 @@ export function Picture({
   imageClassName?: string;
 }) {
   const { locale, t } = useLocale();
+  // The mask is watched from the OUTSIDE: an element clipped to nothing by its own clip-path
+  // reports zero intersection, so watching the clipped element itself would never open it.
+  const outer = useRef<HTMLElement>(null);
   const frame = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
-  const inView = useInView(frame, { amount: 0.12 });
+  const inView = useInView(outer, { amount: 0.05 });
   const reduced = useReducedMotion();
   const shown = inView || reduced || priority;
 
@@ -65,7 +68,7 @@ export function Picture({
   const note = caption ?? (photo.render ? t.projectPage.modelImage : undefined);
 
   return (
-    <figure className={className}>
+    <figure ref={outer} className={className}>
       <div
         ref={frame}
         className={cn('relative w-full overflow-hidden bg-ink-3 transition-[clip-path] duration-[1700ms] ease-[var(--ease-out)]', shown ? '[clip-path:inset(0_0_0_0)]' : '[clip-path:inset(100%_0_0_0)]')}
