@@ -28,6 +28,8 @@ export const SHOTS = {
   residence: { position: [24, 10, 26], target: [0, 3, 2], fov: 40 },
   exterior: { position: [-23, 8, 21], target: [-2, 2.8, 2], fov: 42 },
   landscape: { position: [-9, 6.5, 25], target: [4, 0.3, 13], fov: 42 },
+  /** Phones only: looking down at the living-room floor, so a new floor is actually seen. */
+  floor: { position: [-0.2, 2.5, 5.6], target: [-4.4, 0.1, 0.4], fov: 50 },
 } satisfies Record<string, Shot>;
 
 export type ShotName = keyof typeof SHOTS;
@@ -117,6 +119,18 @@ export function subscribeSceneVisible(listener: Listener) {
   return () => {
     visibilityListeners.delete(listener);
   };
+}
+
+/**
+ * How much of the screen, from the bottom, is covered by the phone configurator panel (0–1).
+ * The camera frames the house in what is left above it instead of behind it.
+ */
+let viewLift = 0;
+export function setViewLift(value: number) {
+  viewLift = Math.max(0, Math.min(0.6, value));
+}
+export function getViewLift() {
+  return viewLift;
 }
 
 const SERVER_MODE: Mode = { kind: 'path', progress: 0 };

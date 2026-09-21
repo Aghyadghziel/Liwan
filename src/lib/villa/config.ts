@@ -19,6 +19,8 @@ export type Group = {
   question: T;
   /** Where the camera should go to see this surface, when it is not the room's own shot. */
   shot?: 'entrance';
+  /** A closer shot used only by the phone panel, where the room shot leaves the surface too small. */
+  phoneShot?: 'floor';
   choices: Choice[];
 };
 
@@ -112,6 +114,7 @@ export const GROUPS: Group[] = [
   {
     id: 'floor',
     room: 'living',
+    phoneShot: 'floor',
     label: L('الأرضية', 'Floor'),
     question: L('الأرضية الداخلية', 'Interior flooring'),
     choices: [

@@ -125,6 +125,7 @@ const source = {
     reset: L('العودة إلى مواصفات الاستوديو', 'Reset to the studio specification'),
     summary: L('مواصفاتك', 'Your specification'),
     cta: L('أرسل هذه المواصفات إلى الاستوديو', 'Send this specification to the studio'),
+    ctaShort: L('أرسل المواصفات', 'Send specification'),
     note: L('لا شيء نهائي هنا؛ نكمل الحديث معك من حيث انتهيت.', 'Nothing is locked in. The studio takes it from here.'),
     open: L('اختر التشطيبات', 'Choose finishes'),
     close: L('إغلاق', 'Close'),

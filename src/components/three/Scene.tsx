@@ -14,7 +14,7 @@ import { RectAreaLightUniformsLib } from 'three-stdlib';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Materials } from './Materials';
 import { Villa } from './Villa';
-import { getCameraMode, getFilmShift, getSceneVisible, heroCurves, sampleFov, SHOTS, subscribeCamera, subscribeSceneVisible } from '@/lib/villa/camera';
+import { getCameraMode, getFilmShift, getSceneVisible, getViewLift, heroCurves, sampleFov, SHOTS, subscribeCamera, subscribeSceneVisible } from '@/lib/villa/camera';
 import { PLAN } from '@/lib/villa/geometry';
 
 /* ── Sky ──────────────────────────────────────────────────
@@ -131,6 +131,7 @@ function CameraRig({ controls }: { controls: React.RefObject<OrbitControlsImpl |
   const wanted = useRef({ position: new THREE.Vector3(...SHOTS.wide.position), target: new THREE.Vector3(...SHOTS.wide.target), fov: SHOTS.wide.fov ?? 40 });
   const current = useRef({ target: new THREE.Vector3(...SHOTS.wide.target) });
   const orbiting = useRef(false);
+  const lift = useRef(0);
 
   useEffect(() => {
     const read = () => {
@@ -170,14 +171,22 @@ function CameraRig({ controls }: { controls: React.RefObject<OrbitControlsImpl |
     // A portrait screen sees far less of a scene at the same focal length, so the lens opens
     // up as the frame narrows. Without this every shot is a crop on a phone.
     const widen = perspective.aspect < 1 ? THREE.MathUtils.clamp(1.5 - perspective.aspect * 0.42, 1, 1.42) : 1;
-    const fov = THREE.MathUtils.lerp(perspective.fov, wanted.current.fov * widen, ease);
+    // On a phone, the configurator panel covers the bottom of the screen. The frame is moved
+    // up into what is left (a vertical lens shift, so verticals stay true) and opened a little
+    // so the room still fits.
+    lift.current = THREE.MathUtils.lerp(lift.current, getViewLift(), ease * 0.8);
+    const fov = THREE.MathUtils.lerp(perspective.fov, wanted.current.fov * widen * (1 + lift.current * 0.45), ease);
     // Lens shift, in millimetres of a 35 mm frame. None on a portrait screen: the titles sit
     // above the house there, not beside it.
     const shift = perspective.aspect < 1 ? 0 : -getFilmShift() * 6;
     const offset = THREE.MathUtils.lerp(perspective.filmOffset, shift, ease * 0.6);
-    if (Math.abs(fov - perspective.fov) > 0.001 || Math.abs(offset - perspective.filmOffset) > 0.0005) {
+    const shiftY = lift.current / 2;
+    const viewY = perspective.view?.enabled ? perspective.view.offsetY : 0;
+    if (Math.abs(fov - perspective.fov) > 0.001 || Math.abs(offset - perspective.filmOffset) > 0.0005 || Math.abs(shiftY - viewY) > 0.0005) {
       perspective.fov = fov;
       perspective.filmOffset = offset;
+      if (shiftY > 0.001) perspective.setViewOffset(1, 1, 0, shiftY, 1, 1);
+      else if (perspective.view?.enabled) perspective.clearViewOffset();
       perspective.updateProjectionMatrix();
     }
 
