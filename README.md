@@ -20,7 +20,7 @@ npm run build      # production build
 | Part | Where |
 |---|---|
 | The residence (plan, walls, openings) | `src/lib/villa/geometry.ts` |
-| Materials and their procedural textures | `src/lib/villa/materials.ts`, `textures.ts` |
+| Materials, texture recipes, the worker that paints them | `src/lib/villa/materials.ts`, `texture-shaders.ts`, `textures.worker.ts`, `textures.ts` |
 | The specification the visitor chooses | `src/lib/villa/config.ts` |
 | Camera shots and the film path | `src/lib/villa/camera.ts` |
 | Scene, light, sky, post-processing | `src/components/three/Scene.tsx` |
@@ -78,11 +78,28 @@ The stills on the Hittin Residence page were taken this way.
 
 ## Performance
 
+The first version drew the house four times a frame and froze for five seconds on load. What
+changed, in order of what it bought:
+
+- **Textures are painted in Web Workers** (`textures.worker.ts`). Surfaces wear the recipe's
+  average colour from the first frame and the real texture dissolves in. The load freeze went
+  from ~4.8 s to nothing the visitor can feel.
+- **The render loop stops when the canvas is covered.** The house only shows through the film
+  and the configurator; behind every reading section there is nothing to draw, so nothing is.
+- **Static geometry is baked into one mesh per material** (`Batch.tsx`): ~660 draw calls a
+  frame became ~70. Materials are shared by reference, so finishes still change live.
+- **The shadow map is drawn a few times and then never again** — nothing that casts a shadow
+  moves. **Glass is a transparent sheet, not a transmissive solid**, which removed a second full
+  render of the scene. **N8AO at half resolution** replaced SSAO and its normal pass.
+- Fewer lights (each is paid for by every pixel), no backdrop blur over the live canvas, pixel
+  ratio capped at the screen's own and 1.5, and dropped further if frames fall.
+
+Measured on the same machine, uncapped: 21 ms a frame became 5.6 ms.
+
 The scene is measured once on load (`src/lib/device.ts`). Phones and low-core machines get a
-half-size shadow map, no occlusion pass, simpler glass and a lower pixel ratio; the frame rate
-is watched and resolution drops before frames do. The lens widens on portrait screens, because
-the same focal length sees far less of a room on a phone. `prefers-reduced-motion` steps the
-camera through the film instead of gliding it.
+smaller shadow map, no occlusion pass, no clearcoat or sheen, thinner planting and a pixel ratio
+of 1. The lens widens on portrait screens, because the same focal length sees far less of a
+room on a phone. `prefers-reduced-motion` steps the camera through the film instead of gliding it.
 
 One WebGL context serves the whole site: the canvas is fixed behind the page, the film and the
 configurator are transparent over it, and every reading section carries a solid ground that

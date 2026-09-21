@@ -1,7 +1,7 @@
 'use client';
 
 import * as THREE from 'three';
-import { boardConcrete, cladding, fabric, grassTuft, gravel, lawn, leafSpray, marble, palmFrond, paving, plaster, ripple, stone, wood, type Pair } from './textures';
+import { grassTuft, leafSpray, load, palmFrond, peek, tintOf, type Pair, type TextureKey } from './textures';
 import type { Spec } from './config';
 
 /**
@@ -16,37 +16,33 @@ import type { Spec } from './config';
 type Tweened = THREE.MeshPhysicalMaterial & { __target?: THREE.Color };
 
 const FACADE = {
-  white: { hex: '#ebe7df', rough: 0.9, texture: () => plaster('#ebe7df'), bump: 0.012 },
-  'warm-stone': { hex: '#ffffff', rough: 0.82, texture: () => cladding('limestone'), bump: 0.02 },
-  sand: { hex: '#d9c6a6', rough: 0.92, texture: () => plaster('#d9c6a6'), bump: 0.014 },
-  charcoal: { hex: '#ffffff', rough: 0.78, texture: () => boardConcrete(), bump: 0.03 },
+  white: { hex: '#ffffff', rough: 0.9, texture: 'plaster|#ebe7df', bump: 0.012 },
+  'warm-stone': { hex: '#ffffff', rough: 0.82, texture: 'cladding|limestone', bump: 0.02 },
+  sand: { hex: '#ffffff', rough: 0.92, texture: 'plaster|#d9c6a6', bump: 0.014 },
+  charcoal: { hex: '#ffffff', rough: 0.78, texture: 'boards', bump: 0.03 },
 } as const;
 
 const FLOOR = {
-  'light-oak': { rough: 0.5, clearcoat: 0.06, texture: () => wood('light-oak', { planks: true }), bump: 0.006 },
-  'dark-oak': { rough: 0.48, clearcoat: 0.08, texture: () => wood('dark-oak', { planks: true }), bump: 0.006 },
-  marble: { rough: 0.16, clearcoat: 0.5, texture: () => marble('white'), bump: 0.002 },
-  travertine: { rough: 0.5, clearcoat: 0.04, texture: () => paving('travertine'), bump: 0.008 },
+  'light-oak': { rough: 0.5, clearcoat: 0.06, texture: 'wood|light-oak|planks', bump: 0.006 },
+  'dark-oak': { rough: 0.48, clearcoat: 0.08, texture: 'wood|dark-oak|planks', bump: 0.006 },
+  marble: { rough: 0.16, clearcoat: 0.5, texture: 'marble|white', bump: 0.002 },
+  travertine: { rough: 0.5, clearcoat: 0.04, texture: 'paving|travertine', bump: 0.008 },
 } as const;
 
 const CABINET = {
   white: { hex: '#e9e6e0', rough: 0.55, texture: null },
-  walnut: { hex: '#ffffff', rough: 0.46, texture: () => wood('walnut') },
+  walnut: { hex: '#ffffff', rough: 0.46, texture: 'wood|walnut|veneer' },
   charcoal: { hex: '#37383b', rough: 0.62, texture: null },
-  'natural-oak': { hex: '#ffffff', rough: 0.5, texture: () => wood('natural-oak') },
+  'natural-oak': { hex: '#ffffff', rough: 0.5, texture: 'wood|natural-oak|veneer' },
 } as const;
 
 const COUNTER = {
-  'white-marble': { rough: 0.18, texture: () => marble('white') },
-  'beige-stone': { rough: 0.3, texture: () => marble('beige') },
-  'dark-stone': { rough: 0.42, texture: () => marble('dark') },
+  'white-marble': { rough: 0.18, texture: 'marble|white' },
+  'beige-stone': { rough: 0.3, texture: 'marble|beige' },
+  'dark-stone': { rough: 0.42, texture: 'marble|dark' },
 } as const;
 
-const DECK = {
-  travertine: () => paving('travertine'),
-  limestone: () => paving('limestone'),
-  'dark-stone': () => paving('dark-stone'),
-} as const;
+const DECK = { travertine: 'paving|travertine', limestone: 'paving|limestone', 'dark-stone': 'paving|dark-stone' } as const;
 
 const SOFA = {
   beige: { hex: '#c9b79c', sheen: 0.5, rough: 0.92, leather: false },
@@ -62,8 +58,8 @@ const METAL = {
 } as const;
 
 const DOOR = {
-  walnut: { hex: '#ffffff', rough: 0.5, metal: 0, texture: () => wood('walnut') },
-  oak: { hex: '#ffffff', rough: 0.55, metal: 0, texture: () => wood('natural-oak') },
+  walnut: { hex: '#ffffff', rough: 0.5, metal: 0, texture: 'wood|walnut|veneer' },
+  oak: { hex: '#ffffff', rough: 0.55, metal: 0, texture: 'wood|natural-oak|veneer' },
   bronze: { hex: '#77593a', rough: 0.46, metal: 1, texture: null },
   charcoal: { hex: '#2d2e30', rough: 0.58, metal: 0.4, texture: null },
 } as const;
@@ -154,22 +150,54 @@ function setMap(material: THREE.MeshPhysicalMaterial, pair: Pair | null, bumpSca
   if (hadBump !== Boolean(bump) || Boolean(previous) !== Boolean(material.map)) material.needsUpdate = true;
 }
 
+/**
+ * Gives a material its texture, whenever that texture is ready. If it is already painted it
+ * goes on at once; if not, the surface wears the recipe's average colour and the texture
+ * dissolves in when the worker delivers it. A token guards against a slow texture landing on
+ * a surface the visitor has since changed again.
+ */
+function assign(material: Tweened, key: TextureKey | null, bumpScale: number, { hex = '#ffffff', immediate = false, stretch = 1 }: { hex?: string; immediate?: boolean; stretch?: number } = {}) {
+  const token = (material.userData.token = ((material.userData.token as number | undefined) ?? 0) + 1);
+  const colour = (value: string, snap: boolean) => {
+    material.__target = new THREE.Color(value);
+    if (snap) material.color.copy(material.__target);
+  };
+
+  if (!key) {
+    setMap(material, null, bumpScale, { immediate });
+    colour(hex, immediate);
+    return;
+  }
+  const painted = peek(key);
+  if (painted) {
+    setMap(material, painted, bumpScale, { immediate, stretch });
+    colour(hex, immediate);
+    return;
+  }
+  // First paint: stand in with the average colour. A later change: keep the old finish until
+  // the new one is ready, then dissolve.
+  if (immediate) colour(tintOf(key), true);
+  void load(key).then((pair) => {
+    if (material.userData.token !== token) return;
+    setMap(material, pair, bumpScale, { immediate: false, stretch });
+    colour(hex, false);
+  });
+}
+
 export type Library = ReturnType<typeof createLibrary>;
 
 export function createLibrary(quality: 'high' | 'low') {
-  // Glass on site is never invisible: it carries a faint green-grey body and a full reflection
-  // of the sky. Refraction is kept for capable devices only.
+  // Glass on site is never invisible: it carries a faint grey-green body and a full reflection
+  // of the sky. It is a thin transparent sheet, not a refracting solid: true transmission makes
+  // three.js render the whole house a second time every frame, for a difference nobody sees
+  // through four millimetres of flat glass.
   const glass = physical({
-    color: '#ffffff',
+    color: '#dfe7e4',
     roughness: 0.03,
     metalness: 0,
-    transmission: quality === 'high' ? 1 : 0,
-    thickness: 0.03,
-    ior: 1.52,
-    attenuationColor: new THREE.Color('#cfdcd6'),
-    attenuationDistance: 0.6,
-    transparent: quality !== 'high',
-    opacity: quality === 'high' ? 1 : 0.24,
+    transparent: true,
+    opacity: quality === 'high' ? 0.2 : 0.24,
+    depthWrite: false,
     side: THREE.DoubleSide,
     envMapIntensity: 0.85,
     specularIntensity: 1,
@@ -180,12 +208,9 @@ export function createLibrary(quality: 'high' | 'low') {
     transparent: true,
     opacity: 0.88,
     ior: 1.33,
-    normalMap: ripple(),
-    roughness: 0.06,
-    normalScale: new THREE.Vector2(0.2, 0.2),
+    roughness: 0.05,
     envMapIntensity: 1.2,
   });
-  if (water.normalMap) water.normalMap.repeat.set(3, 3);
 
   const cut = (map: THREE.Texture, colour = '#ffffff') =>
     physical({ color: colour, map, alphaTest: 0.42, side: THREE.DoubleSide, roughness: 0.78, metalness: 0, envMapIntensity: 0.35, shadowSide: THREE.DoubleSide });
@@ -233,22 +258,32 @@ export function createLibrary(quality: 'high' | 'low') {
     dark: physical({ color: '#1e1e20', roughness: 0.7, envMapIntensity: 0.4 }),
   };
 
-  // Surfaces that never change still need a material, not a tint.
-  setMap(library.concrete, stone('concrete'), 0.012);
-  setMap(library.roofTop, gravel(), 0.04, { stretch: 0.6 });
-  setMap(library.gravel, gravel(), 0.05);
-  setMap(library.lawn, lawn(), 0.03);
-  setMap(library.boundary, plaster('#ddd3c0'), 0.014);
-  setMap(library.soffit, plaster('#e6e0d4'), 0.008);
-  setMap(library.ceiling, plaster('#f1eee8'), 0.006);
-  setMap(library.rug, fabric('#c9bfad'), 0.02, { stretch: 1.6 });
-  setMap(library.cushion, fabric('#ddd3c1'), 0.012);
-  setMap(library.art, fabric('#cfc4b0'), 0.01, { stretch: 2 });
-  setMap(library.timber, wood('walnut'), 0.004);
-  library.roofTop.color.set('#aaa69c');
+  // Phones skip the two costliest shader features, clearcoat and sheen: each is an extra
+  // lighting evaluation per pixel, for a subtlety a small screen does not show.
+  const lite = quality === 'low';
+  if (lite) {
+    for (const material of Object.values(library)) {
+      material.clearcoat = 0;
+      material.sheen = 0;
+    }
+  }
 
-  // The finishes a visitor can change dissolve from one to the next.
-  for (const material of [library.facade, library.deck, library.floor, library.wall, library.cabinet, library.counter, library.door, library.sofa]) crossfade(material);
+  // Every textured surface can dissolve, so a texture arriving late fades in instead of popping.
+  const textured = [library.facade, library.deck, library.floor, library.wall, library.cabinet, library.counter, library.door, library.sofa, library.concrete, library.roofTop, library.gravel, library.lawn, library.boundary, library.soffit, library.ceiling, library.rug, library.cushion, library.art, library.timber];
+  for (const material of textured) crossfade(material);
+
+  // Surfaces that never change still need a material, not a tint.
+  assign(library.concrete, 'stone|concrete', 0.012, { immediate: true });
+  assign(library.roofTop, 'gravel', 0.04, { immediate: true, stretch: 0.6, hex: '#aaa69c' });
+  assign(library.gravel, 'gravel', 0.05, { immediate: true });
+  assign(library.lawn, 'lawn', 0.03, { immediate: true });
+  assign(library.boundary, 'plaster|#ddd3c0', 0.014, { immediate: true });
+  assign(library.soffit, 'plaster|#e6e0d4', 0.008, { immediate: true });
+  assign(library.ceiling, 'plaster|#f1eee8', 0.006, { immediate: true });
+  assign(library.rug, 'fabric|#c9bfad', 0.02, { immediate: true, stretch: 1.6 });
+  assign(library.cushion, 'fabric|#ddd3c1', 0.012, { immediate: true });
+  assign(library.art, 'fabric|#cfc4b0', 0.01, { immediate: true, stretch: 2 });
+  assign(library.timber, 'wood|walnut|veneer', 0.004, { immediate: true });
 
   /** Applied once at build time and whenever a choice changes. */
   let last: Spec | null = null;
@@ -266,9 +301,8 @@ export function createLibrary(quality: 'high' | 'low') {
 
     if (changed('facade')) {
       const facade = FACADE[spec.facade];
-      setMap(library.facade, facade.texture(), facade.bump, { immediate });
+      assign(library.facade, facade.texture, facade.bump, { immediate, hex: facade.hex });
       library.facade.roughness = facade.rough;
-      target(library.facade, facade.hex);
     }
 
     if (changed('frames')) {
@@ -278,59 +312,50 @@ export function createLibrary(quality: 'high' | 'low') {
 
     if (changed('door')) {
       const door = DOOR[spec.door];
-      setMap(library.door, door.texture ? door.texture() : null, 0.004, { immediate });
+      assign(library.door, door.texture, 0.004, { immediate, hex: door.hex });
       library.door.roughness = door.rough;
       library.door.metalness = door.metal;
-      target(library.door, door.hex);
     }
 
     target(library.poolBed, POOL_BED[spec.water]);
 
-    if (changed('deck')) {
-      setMap(library.deck, DECK[spec.deck](), 0.012, { immediate });
-      target(library.deck, '#ffffff');
-    }
+    if (changed('deck')) assign(library.deck, DECK[spec.deck], 0.012, { immediate });
 
     if (changed('floor')) {
       const floor = FLOOR[spec.floor];
-      setMap(library.floor, floor.texture(), floor.bump, { immediate });
+      assign(library.floor, floor.texture, floor.bump, { immediate });
       library.floor.roughness = floor.rough;
-      library.floor.clearcoat = floor.clearcoat;
-      target(library.floor, '#ffffff');
+      library.floor.clearcoat = lite ? 0 : floor.clearcoat;
     }
 
-    if (changed('walls')) {
-      setMap(library.wall, plaster(WALL[spec.walls]), 0.006, { immediate });
-      target(library.wall, '#ffffff');
-    }
+    if (changed('walls')) assign(library.wall, `plaster|${WALL[spec.walls]}`, 0.006, { immediate });
 
     if (changed('cabinet')) {
       const cabinet = CABINET[spec.cabinet];
-      setMap(library.cabinet, cabinet.texture ? cabinet.texture() : null, 0.003, { immediate });
+      assign(library.cabinet, cabinet.texture, 0.003, { immediate, hex: cabinet.hex });
       library.cabinet.roughness = cabinet.rough;
-      target(library.cabinet, cabinet.hex);
     }
 
     if (changed('counter')) {
       const counter = COUNTER[spec.counter];
-      setMap(library.counter, counter.texture(), 0.002, { immediate });
+      assign(library.counter, counter.texture, 0.002, { immediate });
       library.counter.roughness = counter.rough;
-      target(library.counter, '#ffffff');
     }
 
-    const metal = METAL[spec.accent];
-    library.metal.roughness = metal.rough;
-    library.metal.metalness = metal.metal;
-    target(library.metal, metal.hex);
+    if (changed('accent')) {
+      const metal = METAL[spec.accent];
+      library.metal.roughness = metal.rough;
+      library.metal.metalness = metal.metal;
+      target(library.metal, metal.hex);
+    }
 
     if (changed('sofa')) {
       const sofa = SOFA[spec.sofa];
-      setMap(library.sofa, sofa.leather ? null : fabric(sofa.hex), 0.012, { immediate });
-      library.sofa.sheen = sofa.sheen;
+      assign(library.sofa, sofa.leather ? null : `fabric|${sofa.hex}`, 0.012, { immediate, hex: sofa.leather ? sofa.hex : '#ffffff' });
+      library.sofa.sheen = lite ? 0 : sofa.sheen;
       library.sofa.roughness = sofa.rough;
-      library.sofa.clearcoat = sofa.leather ? 0.25 : 0;
+      library.sofa.clearcoat = sofa.leather && !lite ? 0.25 : 0;
       library.sofa.clearcoatRoughness = 0.55;
-      target(library.sofa, sofa.leather ? sofa.hex : '#ffffff');
     }
 
     const warm = spec.light === 'warm';
@@ -367,25 +392,21 @@ export function createLibrary(quality: 'high' | 'low') {
   return { ...library, apply, update, dispose };
 }
 
-/** Warms the alternatives after first paint, so switching a finish never stutters. */
+/** Asks the workers for the alternatives after first paint, so switching a finish never waits. */
 export function prewarm() {
-  const idle = (callback: () => void) => ('requestIdleCallback' in window ? window.requestIdleCallback(callback, { timeout: 4000 }) : setTimeout(callback, 1200));
-  const jobs: (() => void)[] = [
-    () => wood('dark-oak', { planks: true }),
-    () => wood('natural-oak'),
-    () => marble('beige'),
-    () => marble('dark'),
-    () => paving('limestone'),
-    () => paving('dark-stone'),
-    () => boardConcrete(),
-    () => plaster('#ebe7df'),
-    () => plaster('#d9c6a6'),
+  const keys: TextureKey[] = [
+    'wood|dark-oak|planks',
+    'wood|natural-oak|veneer',
+    'marble|beige',
+    'marble|dark',
+    'paving|limestone',
+    'paving|dark-stone',
+    'boards',
+    'plaster|#ebe7df',
+    'plaster|#d9c6a6',
+    `plaster|${WALL.sand}`,
+    `plaster|${WALL.grey}`,
+    ...(['cream', 'charcoal'] as const).map((tone) => `fabric|${SOFA[tone].hex}`),
   ];
-  const run = () => {
-    const job = jobs.shift();
-    if (!job) return;
-    job();
-    idle(run);
-  };
-  idle(run);
+  window.setTimeout(() => keys.forEach((key) => void load(key)), 2500);
 }

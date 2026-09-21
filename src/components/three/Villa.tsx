@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react';
 import * as THREE from 'three';
+import { Batch } from './Batch';
 import { useMaterials } from './Materials';
 import { GrassDrift, Olive, Palm, Shrub } from './Planting';
 import { deckGeometry, finLayout, groundGeometry, mbox, mcyl, mplane, PLAN, poolParts, slab, wallGeometry } from '@/lib/villa/geometry';
@@ -793,10 +794,8 @@ function Landscape({ fine }: { fine: boolean }) {
 /** Lamps inside the house, so the interior is lit even when the camera is outside. */
 // Downlights are real cones of light: they leave pools on the floor and scallops on the walls.
 const SPOTS: V3[] = [
-  [-5.2, PLAN.ceiling - 0.1, 0.4],
-  [-2.6, PLAN.ceiling - 0.1, 3.4],
-  [7.4, PLAN.ceiling - 0.1, 2.6],
-  [5, PLAN.ceiling - 0.1, -3.2],
+  [-3.9, PLAN.ceiling - 0.1, 1.9],
+  [6.4, PLAN.ceiling - 0.1, 0],
 ];
 
 function InteriorLight() {
@@ -808,14 +807,11 @@ function InteriorLight() {
         <Downcone key={p.join(':')} p={p} colour={colour} />
       ))}
       <pointLight position={[-9.4, 2.4, -1]} color={colour} intensity={2.4} distance={9} decay={2} />
-      {/* The floor lamp, and the pendant over the island. */}
-      <pointLight position={[-5.55, 1.75, 1.5]} color={colour} intensity={1.4} distance={5} decay={2} />
-      <pointLight position={[7.4, 2, 0.7]} color={colour} intensity={1.6} distance={6} decay={2} />
+      {/* The floor lamp. */}
+      <pointLight position={[-5.55, 1.75, 1.5]} color={colour} intensity={1.6} distance={6} decay={2} />
       {/* Daylight arriving through the south glass, as a wide soft panel rather than a bulb.
           This is what a deep plan actually gets, and it is what stops the inside going muddy. */}
-      <rectAreaLight position={[2, 2, PLAN.south - 0.35]} rotation={[0, 0, 0]} width={17} height={3.2} intensity={1.8} color="#f6f1e8" />
-      {/* North light through the high slots, washing the ceiling. */}
-      <rectAreaLight position={[-3, 2.9, PLAN.north + 0.4]} rotation={[0.5, Math.PI, 0]} width={14} height={0.7} intensity={1.6} color="#dfe8f2" />
+      <rectAreaLight position={[2, 2, PLAN.south - 0.35]} rotation={[0, 0, 0]} width={17} height={3.2} intensity={2.3} color="#f6f1e8" />
     </group>
   );
 }
@@ -829,7 +825,7 @@ function Downcone({ p, colour }: { p: V3; colour: string }) {
   return (
     <>
       <primitive object={target} />
-      <spotLight position={p} target={target} color={colour} intensity={11} distance={7} angle={0.7} penumbra={0.85} decay={2} />
+      <spotLight position={p} target={target} color={colour} intensity={16} distance={8} angle={0.95} penumbra={0.85} decay={2} />
     </>
   );
 }
@@ -841,27 +837,31 @@ export function Villa({ detail = 'high' }: { detail?: 'high' | 'low' }) {
   const stack = 1.5;
   return (
     <group>
-      <Landscape fine={fine} />
-      <Pool />
+      {/* Everything static is baked into one mesh per material. The pool surface animates and the
+          lights must be seen by the renderer, so both stay outside. */}
+      <Batch>
+        <Landscape fine={fine} />
+        <Pool />
+        <Slabs />
+        <Envelope />
+        <Portico />
+        <Partitions />
+        {/* South face: glass from the living room to the kitchen. */}
+        <Glazing from={PLAN.foyerEast} to={PLAN.east} z={PLAN.south} />
+        {/* Sheers, drawn back into stacks at the ends and the middle of the glass. */}
+        <Curtain w={stack} h={INSIDE_H - 0.12} p={[PLAN.foyerEast + 0.2 + stack / 2, PLAN.plinth + INSIDE_H / 2, PLAN.south - 0.3]} folds={11} />
+        <Curtain w={stack} h={INSIDE_H - 0.12} p={[PLAN.east - 0.2 - stack / 2, PLAN.plinth + INSIDE_H / 2, PLAN.south - 0.3]} folds={11} />
+        <Curtain w={stack} h={INSIDE_H - 0.12} p={[2.6, PLAN.plinth + INSIDE_H / 2, PLAN.south - 0.3]} folds={11} />
+        <Fins />
+        <Living fine={fine} />
+        <Dining fine={fine} />
+        <Kitchen fine={fine} />
+        <Foyer />
+        {fine && <Stair />}
+        {fine && <Downlights xs={[-5.2, -2.6, 0]} zs={[0.4, 3.4]} />}
+        {fine && <Downlights xs={[5, 7.4, 9.8]} zs={[-3.2, 2.6]} />}
+      </Batch>
       <Water />
-      <Slabs />
-      <Envelope />
-      <Portico />
-      <Partitions />
-      {/* South face: glass from the living room to the kitchen. */}
-      <Glazing from={PLAN.foyerEast} to={PLAN.east} z={PLAN.south} />
-      {/* Sheers, drawn back into stacks at the ends and the middle of the glass. */}
-      <Curtain w={stack} h={INSIDE_H - 0.12} p={[PLAN.foyerEast + 0.2 + stack / 2, PLAN.plinth + INSIDE_H / 2, PLAN.south - 0.3]} folds={11} />
-      <Curtain w={stack} h={INSIDE_H - 0.12} p={[PLAN.east - 0.2 - stack / 2, PLAN.plinth + INSIDE_H / 2, PLAN.south - 0.3]} folds={11} />
-      <Curtain w={stack} h={INSIDE_H - 0.12} p={[2.6, PLAN.plinth + INSIDE_H / 2, PLAN.south - 0.3]} folds={11} />
-      <Fins />
-      <Living fine={fine} />
-      <Dining fine={fine} />
-      <Kitchen fine={fine} />
-      <Foyer />
-      {fine && <Stair />}
-      {fine && <Downlights xs={[-5.2, -2.6, 0]} zs={[0.4, 3.4]} />}
-      {fine && <Downlights xs={[5, 7.4, 9.8]} zs={[-3.2, 2.6]} />}
       <InteriorLight />
     </group>
   );

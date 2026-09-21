@@ -98,6 +98,27 @@ export function getFilmShift() {
   return filmShift;
 }
 
+/**
+ * Whether any part of the canvas is on screen. The house sits behind solid reading sections
+ * for most of the page; while it is covered there is nothing to draw, so the loop stops.
+ */
+let sceneVisible = true;
+const visibilityListeners = new Set<Listener>();
+export function setSceneVisible(value: boolean) {
+  if (sceneVisible === value) return;
+  sceneVisible = value;
+  for (const listener of visibilityListeners) listener();
+}
+export function getSceneVisible() {
+  return sceneVisible;
+}
+export function subscribeSceneVisible(listener: Listener) {
+  visibilityListeners.add(listener);
+  return () => {
+    visibilityListeners.delete(listener);
+  };
+}
+
 const SERVER_MODE: Mode = { kind: 'path', progress: 0 };
 export function useCameraMode() {
   return useSyncExternalStore(subscribeCamera, getCameraMode, () => SERVER_MODE);

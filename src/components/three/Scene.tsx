@@ -4,17 +4,17 @@
    moves the camera and the controls by assigning to them every frame. There is no immutable
    equivalent, and copying these objects per frame would defeat the point of the loop. */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Lightformer, OrbitControls, PerformanceMonitor } from '@react-three/drei';
-import { BrightnessContrast, EffectComposer, ToneMapping, HueSaturation, SMAA, SSAO, Vignette } from '@react-three/postprocessing';
+import { BrightnessContrast, EffectComposer, HueSaturation, N8AO, SMAA, ToneMapping, Vignette } from '@react-three/postprocessing';
 import { BlendFunction, ToneMappingMode } from 'postprocessing';
 import { RectAreaLightUniformsLib } from 'three-stdlib';
 import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import { Materials } from './Materials';
 import { Villa } from './Villa';
-import { getCameraMode, getFilmShift, heroCurves, sampleFov, SHOTS, subscribeCamera } from '@/lib/villa/camera';
+import { getCameraMode, getFilmShift, getSceneVisible, heroCurves, sampleFov, SHOTS, subscribeCamera, subscribeSceneVisible } from '@/lib/villa/camera';
 import { PLAN } from '@/lib/villa/geometry';
 
 /* ── Sky ──────────────────────────────────────────────────
@@ -85,6 +85,12 @@ function Light({ quality }: { quality: 'high' | 'low' }) {
     light.shadow.bias = -0.0004;
     light.shadow.normalBias = 0.03;
     light.shadow.radius = 2.2;
+    // Nothing that casts a shadow ever moves, so the shadow map is drawn a few times while
+    // the scene settles and then never again. It was a full extra render of the house per frame.
+    light.shadow.autoUpdate = false;
+    light.shadow.needsUpdate = true;
+    const timers = [400, 1500, 4000].map((ms) => window.setTimeout(() => (light.shadow.needsUpdate = true), ms));
+    return () => timers.forEach((id) => window.clearTimeout(id));
   }, []);
 
   return (
@@ -202,25 +208,10 @@ function Effects({ quality }: { quality: 'high' | 'low' }) {
   // An architectural photograph is sharp from the foreground to the horizon, so there is no
   // depth of field here, and no bloom: only contact shadow, a restrained grade, and a vignette.
   return (
-    <EffectComposer enableNormalPass multisampling={0}>
-      <SSAO
-        blendFunction={BlendFunction.MULTIPLY}
-        samples={24}
-        rings={5}
-        distanceThreshold={0.9}
-        distanceFalloff={0.12}
-        rangeThreshold={0.0015}
-        rangeFalloff={0.01}
-        luminanceInfluence={0.7}
-        radius={0.05}
-        intensity={4.5}
-        bias={0.03}
-        worldDistanceThreshold={40}
-        worldDistanceFalloff={12}
-        worldProximityThreshold={0.6}
-        worldProximityFalloff={0.2}
-        color={new THREE.Color('#2a2015')}
-      />
+    <EffectComposer multisampling={0}>
+      {/* Contact shadow at half resolution, reconstructed from depth alone: no second render of
+          the scene for normals, which the older SSAO pass needed. */}
+      <N8AO halfRes aoRadius={0.9} distanceFalloff={0.6} intensity={2.2} quality="medium" color={new THREE.Color('#2a2015')} />
       {/* The composer switches the renderer's own tone mapping off, so it is done here, with a
           filmic curve that rolls the highlights off and keeps sunlit stone from burning out. */}
       <ToneMapping mode={ToneMappingMode.ACES_FILMIC} />
@@ -253,16 +244,22 @@ function Ready({ onReady }: { onReady?: () => void }) {
 
 export function Scene({ quality = 'high', className, onReady }: SceneProps) {
   const controls = useRef<OrbitControlsImpl>(null);
-  const [dpr, setDpr] = useState(quality === 'high' ? 1.5 : 1);
+  // Never render more pixels than the screen has; 1.5 is the ceiling even on a retina panel.
+  const ceiling = quality === 'high' ? Math.min(typeof window === 'undefined' ? 1 : window.devicePixelRatio, 1.5) : 1;
+  const [dpr, setDpr] = useState(ceiling);
+  const visible = useSyncExternalStore(subscribeSceneVisible, getSceneVisible, () => true);
 
   return (
     <Canvas
       className={className}
       shadows
+      frameloop={visible ? 'always' : 'never'}
       dpr={dpr}
-      gl={{ antialias: true, powerPreference: 'high-performance' }}
+      gl={{ antialias: false, powerPreference: 'high-performance', stencil: false }}
       camera={{ position: SHOTS.wide.position, fov: SHOTS.wide.fov, near: 0.1, far: 500 }}
       onCreated={({ gl, scene }) => {
+        // Dev only: lets the perf probe read draw calls.
+        if (process.env.NODE_ENV !== 'production') (window as unknown as { __liwan?: unknown }).__liwan = { gl };
         // Without this the soft window light renders black.
         RectAreaLightUniformsLib.init();
         gl.toneMapping = THREE.ACESFilmicToneMapping;
@@ -272,7 +269,7 @@ export function Scene({ quality = 'high', className, onReady }: SceneProps) {
       }}
     >
       {/* Drop resolution rather than frames when the device struggles. */}
-      <PerformanceMonitor onDecline={() => setDpr(1)} onIncline={() => setDpr(quality === 'high' ? 1.5 : 1)} />
+      <PerformanceMonitor onDecline={() => setDpr(Math.min(1, ceiling))} onIncline={() => setDpr(ceiling)} flipflops={3} onFallback={() => setDpr(0.8)} />
       <Sky />
       <Light quality={quality} />
       <Materials quality={quality}>

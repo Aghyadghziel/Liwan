@@ -66,8 +66,8 @@ export function Configurator() {
                     }}
                     aria-pressed={current}
                     className={cn(
-                      'group flex shrink-0 items-center justify-between gap-6 border px-4 py-3 text-start backdrop-blur-md transition-colors duration-500 md:w-full md:px-5 md:py-4',
-                      current ? 'border-bronze/70 bg-bronze/10 text-paper' : 'border-line bg-ink/45 text-stone hover:border-paper/30 hover:text-paper',
+                      'group flex shrink-0 items-center justify-between gap-6 border px-4 py-3 text-start transition-colors duration-500 md:w-full md:px-5 md:py-4',
+                      current ? 'border-bronze/70 bg-[#2a2219]/90 text-paper' : 'border-line bg-ink/80 text-stone hover:border-paper/30 hover:text-paper',
                     )}
                   >
                     <span className="label whitespace-nowrap">{item.label[locale]}</span>
@@ -84,7 +84,7 @@ export function Configurator() {
 
           {/* Options: a floating panel on desktop, a sheet on phones. */}
           <div className={cn('md:col-span-7 md:col-start-6 lg:col-span-5 lg:col-start-8', 'max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40 max-md:transition-transform max-md:duration-500', !sheet && active && 'max-md:translate-y-[calc(100%-3.5rem)]', !active && 'max-md:invisible max-md:translate-y-full')}>
-            <div className="border border-line bg-ink/85 backdrop-blur-xl">
+            <div className="border border-line bg-ink/95">
               <button type="button" onClick={() => setSheet((value) => !value)} className="flex w-full items-center justify-between gap-4 border-b border-line px-5 py-4 md:hidden">
                 <span className="label text-paper">{ROOMS.find((item) => item.id === room)?.label[locale]}</span>
                 <span className="label text-bronze">{sheet ? configure.close : configure.open}</span>

@@ -8,7 +8,7 @@ import { Configurator } from '@/components/sections/Configurator';
 import { Contact, Experience, Footer, Materials, Projects, Services, Statement, StudioStory } from '@/components/sections/Editorial';
 import { Hero } from '@/components/sections/Hero';
 import { useQuality } from '@/lib/device';
-import { pinShot, SHOTS, type ShotName } from '@/lib/villa/camera';
+import { pinShot, setSceneVisible, SHOTS, type ShotName } from '@/lib/villa/camera';
 
 const Scene = dynamic(() => import('@/components/three/Scene').then((module) => module.Scene), { ssr: false });
 
@@ -27,6 +27,30 @@ export default function Page() {
     const shot = query.get('shot');
     if (shot && shot in SHOTS) pinShot(shot as ShotName);
     if (query.get('clean')) document.documentElement.classList.add('bench');
+  }, []);
+
+  // The canvas only shows through the film and the configurator. Everywhere else it is
+  // covered, so the render loop is told to stop — scrolling the reading sections costs nothing.
+  useEffect(() => {
+    // The render bench hides the page, so there is nothing to watch: keep drawing.
+    if (new URLSearchParams(window.location.search).has('shot')) return;
+    const windows = ['top', 'residence'].map((id) => document.getElementById(id)).filter((el): el is HTMLElement => Boolean(el));
+    const seen = new Set<Element>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) seen.add(entry.target);
+          else seen.delete(entry.target);
+        }
+        setSceneVisible(seen.size > 0);
+      },
+      { rootMargin: '15% 0px' },
+    );
+    for (const el of windows) observer.observe(el);
+    return () => {
+      observer.disconnect();
+      setSceneVisible(true);
+    };
   }, []);
 
   return (
